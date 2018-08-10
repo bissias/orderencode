@@ -1,5 +1,22 @@
 # Fee-based Transaction Order Encoding
 
+## Environment
+
+```bash
+export ORDER_HOME=$HOME/Documents/orderencode
+export PYTHON_HOME=$HOME/Virtualenvs/PyOrder
+export PYTHONPATH=$ORDER_HOME
+export CHAIN_RIDER_TOKEN=
+```
+
+## Initialization
+
+```bash
+pyvenv-3.5 $PYTHON_HOME
+source $PYTHON_HOME/bin/activate
+pip install -r resources/requirementx.txt
+```
+
 ## Dash block data downloads
 
 ```bash
