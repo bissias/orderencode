@@ -6,6 +6,7 @@
 export ORDER_HOME=$HOME/Documents/orderencode
 export PYTHON_HOME=$HOME/Virtualenvs/PyOrder
 export PYTHONPATH=$ORDER_HOME
+export ORDER_DATA_PATH=$HOME/Data/ordering
 export CHAIN_RIDER_TOKEN=
 ```
 
