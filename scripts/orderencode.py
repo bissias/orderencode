@@ -7,11 +7,12 @@ from builtins import chr
 from builtins import zip
 from builtins import map
 from builtins import range
+import data
 from past.utils import old_div
 import json, io, traceback, sys
 
 def feerate(x):
-    return old_div(x['fee'], (old_div(len(x['data']),2.)))
+    return old_div(x['fee'], (old_div(x['bytes'],2.)))
 
 def encode_order(txlist):
     txlist = txlist[:]
@@ -85,12 +86,33 @@ def unmake_bitmap(bitmap, residuals):
                 break
     return n_vals
 
+def extract_chart_rider(txs):
+    ext_txs = []
+
+    for tx in txs:
+        try:
+            fee = tx['fees']
+        except KeyError:
+            fee = 0.0
+
+        ext_tx = {'hash': tx['txid'],
+                  'fee': fee,
+                  'bytes': tx['size']}
+
+        ext_txs.append(ext_tx)
+
+    return ext_txs
+
 if __name__ == '__main__':
 
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
         print("""Usage:
         bitcoin-cli getblocktemplate > somefilename
-        python orderencode.py s[-v] omefilename
+        python orderencode.py s[-v] somefilename
+
+        or
+
+        python scripts/orderencode.py -v rider ~/Data/ordering/dash_txs.dat
 
         If you don't have bitcoin-cli handy, feel free to try it on the four sample
         GBT files in samplegbts/:
@@ -98,12 +120,22 @@ if __name__ == '__main__':
         for i in `seq 1 4`; do python orderencode.py samplegbts/$i; done
         """)
         sys.exit()
+    elif len(sys.argv) == 2:
+        filename = sys.argv[-1]
 
-    filename = sys.argv[-1]
+        with open(filename, 'r') as f:
+            gbt = json.loads(f.read())
 
-    with open(filename, 'r') as f:
-        gbt = json.loads(f.read())
-    txlist = gbt['transactions']
+        txlist = []
+        for tx in gbt['transactions']:
+            tx.update({'bytes': len(tx['data'])})
+            txlist.append(tx)
+    elif len(sys.argv) == 3 and sys.argv[1] == 'rider':
+        filename = sys.argv[-1]
+
+        loaded_txs = data.load_txs(filename)
+        txlist = extract_chart_rider(loaded_txs)
+
     off, comp =  encode_order(txlist)
 
     print("%i bitmap bytes, %i residual varints, %i offset varints" % (len(comp[0][0]), len(comp[0][1]), len(comp[1])))
@@ -128,7 +160,3 @@ if __name__ == '__main__':
     print("  Repetition count of repeating offsets:", comp[0][1])
     print("  The offsets values:", comp[1])
     print("")
-    if not decoded == gbt['transactions'] or '-v' in sys.argv:
-        print("idx\tGBT\tDecoded\tSorted\tCorrect\tOffset")
-        for idx, dc, gb, bf, o in zip(list(range(len(decoded))), decoded, txlist, byfee, off):
-            print("%i\t%7.3f\t%7.3f\t%7.3f\t%s\t%i" % (idx, feerate(gb), feerate(dc), feerate(bf), '*' if gb == dc else "", o))
