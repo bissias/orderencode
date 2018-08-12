@@ -1,8 +1,17 @@
 #!/usr/bin/env python
-import json, cStringIO, traceback, sys
+from __future__ import division
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import chr
+from builtins import zip
+from builtins import map
+from builtins import range
+from past.utils import old_div
+import json, io, traceback, sys
 
 def feerate(x):
-    return x['fee'] / (len(x['data'])/2.)
+    return old_div(x['fee'], (old_div(len(x['data']),2.)))
 
 def encode_order(txlist):
     txlist = txlist[:]
@@ -59,7 +68,7 @@ def make_bitmap(counts):
     """
     residuals = [count for count in counts if count!=1]
     bits = [1<<(i%8) if counts[i] == 1 else 0 for i in range(len(counts))]
-    byts = [chr(sum(bits[8*i:8*(i+1)])) for i in range((len(counts)+7)/8)]
+    byts = [chr(sum(bits[8*i:8*(i+1)])) for i in range(old_div((len(counts)+7),8))]
     ''.join(byts)
     return ''.join(byts), residuals
 
@@ -79,7 +88,7 @@ def unmake_bitmap(bitmap, residuals):
 if __name__ == '__main__':
 
     if len(sys.argv) < 2:
-        print """Usage:
+        print("""Usage:
         bitcoin-cli getblocktemplate > somefilename
         python orderencode.py s[-v] omefilename
 
@@ -87,7 +96,7 @@ if __name__ == '__main__':
         GBT files in samplegbts/:
 
         for i in `seq 1 4`; do python orderencode.py samplegbts/$i; done
-        """
+        """)
         sys.exit()
 
     filename = sys.argv[-1]
@@ -97,29 +106,29 @@ if __name__ == '__main__':
     txlist = gbt['transactions']
     off, comp =  encode_order(txlist)
 
-    print "%i bitmap bytes, %i residual varints, %i offset varints" % (len(comp[0][0]), len(comp[0][1]), len(comp[1]))
+    print("%i bitmap bytes, %i residual varints, %i offset varints" % (len(comp[0][0]), len(comp[0][1]), len(comp[1])))
     def varintsize(x):
         if -2**8  < x <  (2**8-4): return 1
         if -2**16 < x < (2**16-1): return 3
         if -2**32 < x < (2**32-1): return 5
         if -2**64 < x < (2**64-1): return 9
-    print "%i bytes total" % (len(comp[0][0]) + sum(map(varintsize, comp[0][1])) + sum(map(varintsize, comp[1])))
-    print len(txlist), "transactions total"
+    print("%i bytes total" % (len(comp[0][0]) + sum(map(varintsize, comp[0][1])) + sum(map(varintsize, comp[1]))))
+    print(len(txlist), "transactions total")
 
 
     byfee = sorted(txlist, key=feerate, reverse=True)
     decoded = decode_order(byfee, comp)
 
     if len(decoded) != len(txlist):
-        print "Wrong list lengt! %i != %i" % (len(decoded), len(txlist))
+        print("Wrong list lengt! %i != %i" % (len(decoded), len(txlist)))
     errors = sum([int(gb!=dc) for gb, dc in zip(decoded, txlist)])
-    print "%i total errors" % errors
-    print "\nCompressed data:"
-    print "  Bitmap of non-repeating offsets:", map(ord, comp[0][0])
-    print "  Repetition count of repeating offsets:", comp[0][1]
-    print "  The offsets values:", comp[1]
-    print ""
+    print("%i total errors" % errors)
+    print("\nCompressed data:")
+    print("  Bitmap of non-repeating offsets:", list(map(ord, comp[0][0])))
+    print("  Repetition count of repeating offsets:", comp[0][1])
+    print("  The offsets values:", comp[1])
+    print("")
     if not decoded == gbt['transactions'] or '-v' in sys.argv:
-        print "idx\tGBT\tDecoded\tSorted\tCorrect\tOffset"
-        for idx, dc, gb, bf, o in zip(range(len(decoded)), decoded, txlist, byfee, off):
-            print "%i\t%7.3f\t%7.3f\t%7.3f\t%s\t%i" % (idx, feerate(gb), feerate(dc), feerate(bf), '*' if gb == dc else "", o)
+        print("idx\tGBT\tDecoded\tSorted\tCorrect\tOffset")
+        for idx, dc, gb, bf, o in zip(list(range(len(decoded))), decoded, txlist, byfee, off):
+            print("%i\t%7.3f\t%7.3f\t%7.3f\t%s\t%i" % (idx, feerate(gb), feerate(dc), feerate(bf), '*' if gb == dc else "", o))
