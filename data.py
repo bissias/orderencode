@@ -48,20 +48,24 @@ class ChainRider:
 
         return r.json()
 
-    def block_txs(self, header, page=1):
+    def block_txs(self, header, page=0):
         params = 'block=' + header
-        params += '&page=' + repr(page)
+        params += '&pageNum=' + repr(page)
         params += '&token=' + self.token
 
         r = requests.get(os.path.join(self.base_url,
                                       self.currency,
                                       self.chain,
                                       'txs?' + params))
+
+        if r.status_code != 200:
+            raise RuntimeError('error %d: %s' % (r.status_code, r.text))
+
         result = r.json()
         txs = result['txs']
 
-#        if page < result['pagesTotal']:
-#            return txs + self.block_txs(header, page+1)    
+        if page < result['pagesTotal']-1:
+            return txs + self.block_txs(header, page+1)    
 
         return txs
 
@@ -78,8 +82,7 @@ def download_txs(begin_stamp, end_stamp=datetime.now().strftime('%Y-%m-%d')):
 
         for block_hash in block_hashes:
             txs += rider.block_txs(block_hash)
-            time.sleep(1)
-            break
+            time.sleep(60)
 
         cur_date += day
 
