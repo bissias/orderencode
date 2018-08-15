@@ -8,6 +8,8 @@ from builtins import zip
 from builtins import map
 from builtins import range
 import data
+from datetime import datetime
+import math
 from past.utils import old_div
 import json, io, traceback, sys
 
@@ -103,6 +105,12 @@ def extract_chart_rider(txs):
 
     return ext_txs
 
+def varintsize(x):
+    if -2**8  < x <  (2**8-4): return 1
+    if -2**16 < x < (2**16-1): return 3
+    if -2**32 < x < (2**32-1): return 5
+    if -2**64 < x < (2**64-1): return 9
+
 if __name__ == '__main__':
 
     if len(sys.argv) < 2 or len(sys.argv) > 3:
@@ -130,33 +138,36 @@ if __name__ == '__main__':
         for tx in gbt['transactions']:
             tx.update({'bytes': len(tx['data'])})
             txlist.append(tx)
+
+        off, comp =  encode_order(txlist)
+
+        print("%i bitmap bytes, %i residual varints, %i offset varints" % (len(comp[0][0]), len(comp[0][1]), len(comp[1])))
+        print("%i bytes total" % (len(comp[0][0]) + sum(map(varintsize, comp[0][1])) + sum(map(varintsize, comp[1]))))
+        print(len(txlist), "transactions total")
+
+
+        byfee = sorted(txlist, key=feerate, reverse=True)
+        decoded = decode_order(byfee, comp)
+
+        if len(decoded) != len(txlist):
+            print("Wrong list lengt! %i != %i" % (len(decoded), len(txlist)))
+        errors = sum([int(gb!=dc) for gb, dc in zip(decoded, txlist)])
+        print("%i total errors" % errors)
+        print("\nCompressed data:")
+        print("  Bitmap of non-repeating offsets:", list(map(ord, comp[0][0])))
+        print("  Repetition count of repeating offsets:", comp[0][1])
+        print("  The offsets values:", comp[1])
+        print("")
     elif len(sys.argv) == 3 and sys.argv[1] == 'rider':
         filename = sys.argv[-1]
 
         loaded_txs = data.load_txs(filename)
         txlist = extract_chart_rider(loaded_txs)
+        off, comp =  encode_order(txlist)
 
-    off, comp =  encode_order(txlist)
+        fee_bytes_total = len(comp[0][0]) + sum(map(varintsize, comp[0][1])) + sum(map(varintsize, comp[1]))
+        naive_bytes_total = int(math.ceil(len(txlist) * math.log(len(txlist), 2) / 8.0))
 
-    print("%i bitmap bytes, %i residual varints, %i offset varints" % (len(comp[0][0]), len(comp[0][1]), len(comp[1])))
-    def varintsize(x):
-        if -2**8  < x <  (2**8-4): return 1
-        if -2**16 < x < (2**16-1): return 3
-        if -2**32 < x < (2**32-1): return 5
-        if -2**64 < x < (2**64-1): return 9
-    print("%i bytes total" % (len(comp[0][0]) + sum(map(varintsize, comp[0][1])) + sum(map(varintsize, comp[1]))))
-    print(len(txlist), "transactions total")
-
-
-    byfee = sorted(txlist, key=feerate, reverse=True)
-    decoded = decode_order(byfee, comp)
-
-    if len(decoded) != len(txlist):
-        print("Wrong list lengt! %i != %i" % (len(decoded), len(txlist)))
-    errors = sum([int(gb!=dc) for gb, dc in zip(decoded, txlist)])
-    print("%i total errors" % errors)
-    print("\nCompressed data:")
-    print("  Bitmap of non-repeating offsets:", list(map(ord, comp[0][0])))
-    print("  Repetition count of repeating offsets:", comp[0][1])
-    print("  The offsets values:", comp[1])
-    print("")
+        with open('dash_ordering_%s.csv' % datetime.now().strftime('%Y%m%d%H%M%S'), 'w') as fd:  
+            fd.write('n_txs,naive_bytes,fee_based_bytes\n')
+            fd.write(repr(len(txlist)) + ',' + repr(naive_bytes_total) + ',' + repr(fee_bytes_total) + '\n')
