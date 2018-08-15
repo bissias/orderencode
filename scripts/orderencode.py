@@ -164,13 +164,18 @@ if __name__ == '__main__':
         loaded_tx_map = data.load_txs(filename)
 
         with open('dash_ordering_%s.csv' % datetime.now().strftime('%Y%m%d%H%M%S'), 'w') as fd:  
-            fd.write('header,n_txs,naive_bytes,fee_based_bytes\n')
+            fd.write('time,header,n_txs,naive_bytes,fee_based_bytes\n')
 
-            for block_header, loaded_txs in loaded_tx_map.items():
+            for time_header, loaded_txs in sorted(loaded_tx_map.items()):
+                time, block_header = time_header
                 txlist = extract_chart_rider(loaded_txs)
                 off, comp =  encode_order(txlist)
 
                 fee_bytes_total = len(comp[0][0]) + sum(map(varintsize, comp[0][1])) + sum(map(varintsize, comp[1]))
                 naive_bytes_total = int(math.ceil(len(txlist) * math.log(len(txlist), 2) / 8.0))
 
-                fd.write(block_header + ',' + repr(len(txlist)) + ',' + repr(naive_bytes_total) + ',' + repr(fee_bytes_total) + '\n')
+                fd.write(repr(time) + ',' + 
+                         block_header + ',' + 
+                         repr(len(txlist)) + ',' + 
+                         repr(naive_bytes_total) + ',' + 
+                         repr(fee_bytes_total) + '\n')

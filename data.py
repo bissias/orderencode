@@ -78,11 +78,12 @@ def download_txs(begin_stamp, end_stamp=datetime.now().strftime('%Y-%m-%d')):
     tx_map = {}
     while cur_date <= end_date:
         blocks = rider.block_date(cur_date.strftime('%Y-%m-%d'))['blocks']
-        block_hashes = [blk['hash'] for blk in blocks]
+        blocks = sorted(blocks, key=lambda block: block['time'])
+        block_hashes = [(blk['time'], blk['hash']) for blk in blocks]
 
-        for block_hash in block_hashes:
-            tx_map[block_hash] = rider.block_txs(block_hash)
-            time.sleep(60)
+        for block_time, block_hash in block_hashes:
+            tx_map[(block_time, block_hash)] = rider.block_txs(block_hash)
+            time.sleep(0.25)
 
         cur_date += day
 
