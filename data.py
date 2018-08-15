@@ -75,22 +75,22 @@ def download_txs(begin_stamp, end_stamp=datetime.now().strftime('%Y-%m-%d')):
     day = timedelta(hours=24)
 
     rider = ChainRider()
-    txs = []
+    tx_map = {}
     while cur_date <= end_date:
         blocks = rider.block_date(cur_date.strftime('%Y-%m-%d'))['blocks']
         block_hashes = [blk['hash'] for blk in blocks]
 
         for block_hash in block_hashes:
-            txs += rider.block_txs(block_hash)
+            tx_map[block_hash] = rider.block_txs(block_hash)
             time.sleep(60)
 
         cur_date += day
 
-    return txs
+    return tx_map
 
-def dump_txs(txs, filename=os.path.join(DATA_DIR, 'dash_txs.dat')):
+def dump_txs(tx_map, filename=os.path.join(DATA_DIR, 'dash_txs.dat')):
     with open(filename, 'wb') as fd:
-        pickle.dump(txs, fd)
+        pickle.dump(tx_map, fd)
 
 def load_txs(filename=os.path.join(DATA_DIR, 'dash_txs.dat')):
     with open(filename, 'rb') as fd:
