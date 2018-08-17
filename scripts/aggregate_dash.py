@@ -9,8 +9,10 @@ cur_date = datetime(year=2018, month=7, day=1)
 end_date = datetime(year=2018, month=7, day=31)
 day = timedelta(hours=24)
 
+tx_map = {}
 while cur_date <= end_date:
     cur_timestamp = cur_date.strftime('%Y-%m-%d')
-    tx_map = data.download_txs(cur_timestamp, cur_timestamp)
-    data.dump_txs(tx_map, os.path.join(DATA_DIR, 'dash_txs_%s.dat' % cur_timestamp))
+    tx_map.update(data.load_txs(os.path.join(DATA_DIR, 'dash_txs_%s.dat' % cur_timestamp)))
     cur_date += day
+
+data.dump_txs(tx_map)

@@ -53,13 +53,33 @@ class ChainRider:
         params += '&pageNum=' + repr(page)
         params += '&token=' + self.token
 
-        r = requests.get(os.path.join(self.base_url,
-                                      self.currency,
-                                      self.chain,
-                                      'txs?' + params))
+        status = None
+        request_ct = 0
+        while status != 200:
+            try:
+                r = requests.get(os.path.join(self.base_url,
+                                              self.currency,
+                                              self.chain,
+                                              'txs?' + params))
+                status = r.status_code
+            except Exception as e:
+                print('caught exception: %s' % str(e))
+                status = None
 
-        if r.status_code != 200:
-            raise RuntimeError('error %d: %s' % (r.status_code, r.text))
+            request_ct += 1
+
+            if r.status_code != 200:
+                print('error %d: %s' % (r.status_code, r.text))
+
+                if request_ct > 3:
+                    print('aborting')
+                    break
+                else:
+                    print('retrying')
+                    time.sleep(30)
+
+        if status != 200:
+            raise RuntimeError('download failed after 3 attempts')
 
         result = r.json()
         txs = result['txs']
@@ -77,6 +97,7 @@ def download_txs(begin_stamp, end_stamp=datetime.now().strftime('%Y-%m-%d')):
     rider = ChainRider()
     tx_map = {}
     while cur_date <= end_date:
+        print('Downloading txs for %s' % cur_date.strftime('%Y-%m-%d %H:%M:%S'))
         blocks = rider.block_date(cur_date.strftime('%Y-%m-%d'))['blocks']
         blocks = sorted(blocks, key=lambda block: block['time'])
         block_hashes = [(blk['time'], blk['hash']) for blk in blocks]
